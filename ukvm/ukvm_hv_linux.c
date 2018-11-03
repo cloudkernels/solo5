@@ -39,7 +39,8 @@
 #include <seccomp.h> /* from libseccomp-dev */
 #include "seccomp-bpf.h"
 #include "syscall-reporter.h"
-#include "ukvm_cpu_x86_64.h"
+//#include "ukvm_cpu_x86_64.h"
+#include "ukvm_cpu_aarch64.h"
 /* #include <sys/prctl.h> */
 /* #include <linux/seccomp.h> */
 
@@ -47,13 +48,22 @@
 #include "ukvm_hv_linux.h"
 
 void ukvm_hv_mem_size(size_t *mem_size) {
+#if defined(__i386__) || defined(__x86_64__)
     ukvm_x86_mem_size(mem_size);
+#elif defined(__aarch64__) 
+    aarch64_mem_size(mem_size);
+#endif
+    //printf("MEM_SIZE: %zu\n", *mem_size);
 }
 
 void install_syscall_filter(void)
 {
+    //printf("install_syscall_filter START\n");
+    int ret;
     //scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_KILL);
     scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_TRAP);
+    if (ctx == NULL)
+        err(1, "seccomp_init error");
 
     /* 
      * For core module.
@@ -103,12 +113,16 @@ void install_syscall_filter(void)
                      SCMP_A1(SCMP_CMP_EQ, 1));
 #endif
 
-    seccomp_load(ctx);
+    ret = seccomp_load(ctx);
+    if (ret < 0)
+        err(1, "seccomp_load error");
+    //printf("install_syscall_filter END\n");
 }
 
 
 struct ukvm_hv *ukvm_hv_init(size_t mem_size)
 {
+    //printf("ukvm_hv_init START\n");
     struct ukvm_hv *hv = malloc(sizeof (struct ukvm_hv));
     if (hv == NULL)
         err(1, "malloc");
@@ -141,6 +155,7 @@ struct ukvm_hv *ukvm_hv_init(size_t mem_size)
     hv->mem_size = mem_size;
 
     hv->b = hvb;
+    //printf("ukvm_hv_init END\n");
     return hv;
 }
 
@@ -150,6 +165,7 @@ static void ukvm_hv_handle_exit(int nr, void *arg);
 /* Yikes. Using rdtsc for timing is a bit suspect. */
 uint64_t get_cpuinfo_freq(void)
 {
+    //printf("get_cpuinfo_freq START\n");
     FILE *cpuinfo = fopen("/proc/cpuinfo", "rb");
     int ghz=0, mhz=0;
     char buf[256];
@@ -169,6 +185,7 @@ uint64_t get_cpuinfo_freq(void)
     } while(!feof(cpuinfo));
 
     fclose(cpuinfo);
+    //printf("get_cpuinfo_freq END\n");
     return ((uint64_t)ghz * 1000000000 + (uint64_t)mhz * 10000000);
 }
 
@@ -176,20 +193,26 @@ uint64_t get_cpuinfo_freq(void)
 void ukvm_hv_vcpu_init(struct ukvm_hv *hv, ukvm_gpa_t gpa_ep,
                        ukvm_gpa_t gpa_kend, char **cmdline)
 {
+    //printf("ukvm_hv_vcpu_init START\n");
     struct ukvm_boot_info *bi =
         (struct ukvm_boot_info *)(hv->mem + LINUX_BOOT_INFO_BASE);
     bi->mem_size = hv->mem_size;
     bi->kernel_end = gpa_kend;
     bi->cmdline = LINUX_CMDLINE_BASE;
     bi->cpu.tsc_freq =   get_cpuinfo_freq();
+    //printf("ukvm_hv_vcpu_init 1\n");
     
     uint64_t *hypercall_ptr = (uint64_t *)(hv->mem + LINUX_HYPERCALL_ADDRESS);
+    //printf("ukvm_hv_vcpu_init pre2\n");
     *hypercall_ptr = (uint64_t)ukvm_hv_handle_exit;
+    //printf("ukvm_hv_vcpu_init 2\n");
     
     hv->b->entry = gpa_ep;
     hv->b->arg = bi;
+    //printf("ukvm_hv_vcpu_init 3\n");
         
     *cmdline = (char *)(hv->mem + LINUX_CMDLINE_BASE);
+    //printf("ukvm_hv_vcpu_init END\n");
 }
 
 /* 
@@ -201,12 +224,14 @@ static struct ukvm_hv *loop_hv;
 
 int ukvm_hv_vcpu_loop(struct ukvm_hv *hv)
 {
+    //printf("ukvm_hv_vcpu_loop START\n");
     void (*_start)(void *) = (void (*)(void *))hv->b->entry;
     loop_hv = hv;
 
     install_syscall_reporter();
-    install_syscall_filter();
+    //install_syscall_filter();
     /* prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT); */
+    //printf("ukvm_hv_vcpu_loop 1\n");
 
 #ifdef UKVM_MODULE_FTRACE    
     void ukvm_ftrace_ready(void);
@@ -218,18 +243,21 @@ int ukvm_hv_vcpu_loop(struct ukvm_hv *hv)
      * stack with the unikernel. 
      */
     _start(hv->b->arg);
+    //printf("ukvm_hv_vcpu_loop 2\n");
 
 #ifdef UKVM_MODULE_FTRACE    
     void ukvm_ftrace_finished(void);
     ukvm_ftrace_finished();
 #endif
 
+    //printf("ukvm_hv_vcpu_loop END\n");
     return 0;
 }
 
 /* Called directly by the unikernel. */
 static void ukvm_hv_handle_exit(int nr, void *arg)
 {
+    //printf("ukvm_hv_handle_exit START\n");
     struct ukvm_hv *hv = loop_hv;
 
     /* Guest has halted the CPU. */
@@ -255,4 +283,5 @@ static void ukvm_hv_handle_exit(int nr, void *arg)
     
     ukvm_gpa_t gpa = (ukvm_gpa_t)arg;
     fn(hv, gpa);
+    //printf("ukvm_hv_handle_exit END\n");
 }

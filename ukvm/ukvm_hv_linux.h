@@ -18,6 +18,8 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include "ukvm_cpu_aarch64.h"
+
 /*
  * ukvm_hv_linux.h: Shared Linux process backend definitions.
  */
@@ -30,10 +32,14 @@
  * ukvm_guest.h for this backend to be used
  */
 
-#define LINUX_MAP_ADDRESS          0x10000
+//#define LINUX_MAP_ADDRESS          0x10000
 /* #define LINUX_HYPERCALL_ADDRESS 0x10000 (defined in ukvm_guest.h) */
-#define LINUX_BOOT_INFO_BASE       0x10100
-#define LINUX_CMDLINE_BASE         0x10200
+//#define LINUX_BOOT_INFO_BASE       0x10100
+//#define LINUX_CMDLINE_BASE         0x10200
+
+#define LINUX_MAP_ADDRESS          _AC(0x10000, UL)
+#define LINUX_BOOT_INFO_BASE       _AC(0x10100, UL)
+#define LINUX_CMDLINE_BASE         _AC(0x10200, UL)
 
 /*
  *                        0x10000 = LINUX_MAP_ADDRESS
