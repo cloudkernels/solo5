@@ -25,6 +25,9 @@
 #ifndef UKVM_HV_LINUX_H
 #define UKVM_HV_LINUX_H
 
+#include <stdint.h>
+#include "ukvm_guest.h"
+
 /* 
  * Note: we currently need __UKVM_LINUX__ to be defined in
  * ukvm_guest.h for this backend to be used
@@ -48,5 +51,7 @@ struct ukvm_hvb {
     uint64_t entry;
     void *arg;
 };
+
+uint64_t get_cpuinfo_freq(void);
 
 #endif /* UKVM_HV_LINUX_H */

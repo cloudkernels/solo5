@@ -54,9 +54,15 @@ struct seccomp_data {
 #if defined(__i386__)
 # define REG_SYSCALL	REG_EAX
 # define ARCH_NR	AUDIT_ARCH_I386
+# define M_SYSCALL	gregs[REG_SYSCALL]
 #elif defined(__x86_64__)
 # define REG_SYSCALL	REG_RAX
 # define ARCH_NR	AUDIT_ARCH_X86_64
+# define M_SYSCALL	gregs[REG_SYSCALL]
+#elif defined(__aarch64__) && defined(__LP64__)
+# define REG_SYSCALL	8
+# define ARCH_NR	AUDIT_ARCH_AARCH64
+# define M_SYSCALL	regs[REG_SYSCALL]
 #else
 # warning "Platform does not support seccomp filter yet"
 # define REG_SYSCALL	0

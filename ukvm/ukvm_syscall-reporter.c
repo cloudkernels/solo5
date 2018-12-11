@@ -11,6 +11,7 @@
  */
 #include "syscall-reporter.h"
 #include "syscall-names.h"
+#include "seccomp-bpf.h"
 #include <err.h>
 
 const char * const msg_needed = "Looks like you also need syscall: ";
@@ -41,7 +42,7 @@ static void reporter(int nr, siginfo_t *info, void *void_context)
 		return;
 	if (!ctx)
 		return;
-	syscall = ctx->uc_mcontext.gregs[REG_SYSCALL];
+	syscall = ctx->uc_mcontext.M_SYSCALL;
 	strcpy(buf, msg_needed);
 	if (syscall < sizeof(syscall_names)) {
 		strcat(buf, syscall_names[syscall]);

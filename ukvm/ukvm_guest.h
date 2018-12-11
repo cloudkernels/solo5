@@ -105,6 +105,8 @@ static inline void ukvm_do_hypercall(int n, volatile void *arg)
 #define UKVM_HYPERCALL_ADDRESS(x)   (UKVM_HYPERCALL_MMIO_BASE + ((x) << 3))
 #define UKVM_HYPERCALL_NR(x)        (((x) - UKVM_HYPERCALL_MMIO_BASE) >> 3)
 
+#define LINUX_HYPERCALL_ADDRESS     (0x10000UL)
+
 #    ifdef UKVM_HOST
 /*
  * Non-dereferencable monitor-side type representing a guest physical address.
@@ -121,6 +123,12 @@ typedef uint64_t ukvm_gpa_t;
  */
 static inline void ukvm_do_hypercall(int n, volatile void *arg)
 {
+#ifdef __UKVM_LINUX__
+    uint64_t hcaddr = *((uint64_t *)LINUX_HYPERCALL_ADDRESS);
+    void (*_hc)(int,void *) = (void (*)(int, void *))hcaddr;
+    _hc(n, (void *)arg);
+#else    
+
 #    ifdef assert
     assert(((uint64_t)arg <= UINT32_MAX));
 #    endif
@@ -129,6 +137,7 @@ static inline void ukvm_do_hypercall(int n, volatile void *arg)
 	        : "rZ" ((uint32_t)((uint64_t)arg)),
 	          "r" ((uint64_t)UKVM_HYPERCALL_ADDRESS(n))
 	        : "memory");
+#endif /*__UKVM_LINUX__*/
 }
 #    endif
 #else

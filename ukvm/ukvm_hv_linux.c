@@ -39,21 +39,19 @@
 #include <seccomp.h> /* from libseccomp-dev */
 #include "seccomp-bpf.h"
 #include "syscall-reporter.h"
-#include "ukvm_cpu_x86_64.h"
 /* #include <sys/prctl.h> */
 /* #include <linux/seccomp.h> */
 
 #include "ukvm.h"
 #include "ukvm_hv_linux.h"
 
-void ukvm_hv_mem_size(size_t *mem_size) {
-    ukvm_x86_mem_size(mem_size);
-}
-
 void install_syscall_filter(void)
 {
+    int ret;
     //scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_KILL);
     scmp_filter_ctx ctx = seccomp_init(SCMP_ACT_TRAP);
+    if (ctx == NULL)
+        err(1, "seccomp_init error");
 
     /* 
      * For core module.
@@ -103,7 +101,9 @@ void install_syscall_filter(void)
                      SCMP_A1(SCMP_CMP_EQ, 1));
 #endif
 
-    seccomp_load(ctx);
+    ret = seccomp_load(ctx);
+    if (ret < 0)
+        err(1, "seccomp_load error");
 }
 
 
@@ -141,37 +141,11 @@ struct ukvm_hv *ukvm_hv_init(size_t mem_size)
     hv->mem_size = mem_size;
 
     hv->b = hvb;
+
     return hv;
 }
 
-
 static void ukvm_hv_handle_exit(int nr, void *arg);
-
-/* Yikes. Using rdtsc for timing is a bit suspect. */
-uint64_t get_cpuinfo_freq(void)
-{
-    FILE *cpuinfo = fopen("/proc/cpuinfo", "rb");
-    int ghz=0, mhz=0;
-    char buf[256];
-    
-    do {
-        char *ptr;
-        ptr = fgets(buf, 256, cpuinfo);
-        if (!ptr)
-            continue;
-                
-        ptr = strstr(buf, "GHz");
-        if (!ptr)
-            continue;
-
-        sscanf(ptr - 4, "%d.%d", &ghz, &mhz);
-        break;
-    } while(!feof(cpuinfo));
-
-    fclose(cpuinfo);
-    return ((uint64_t)ghz * 1000000000 + (uint64_t)mhz * 10000000);
-}
-
 
 void ukvm_hv_vcpu_init(struct ukvm_hv *hv, ukvm_gpa_t gpa_ep,
                        ukvm_gpa_t gpa_kend, char **cmdline)
@@ -181,7 +155,7 @@ void ukvm_hv_vcpu_init(struct ukvm_hv *hv, ukvm_gpa_t gpa_ep,
     bi->mem_size = hv->mem_size;
     bi->kernel_end = gpa_kend;
     bi->cmdline = LINUX_CMDLINE_BASE;
-    bi->cpu.tsc_freq =   get_cpuinfo_freq();
+    bi->cpu.tsc_freq = get_cpuinfo_freq();
     
     uint64_t *hypercall_ptr = (uint64_t *)(hv->mem + LINUX_HYPERCALL_ADDRESS);
     *hypercall_ptr = (uint64_t)ukvm_hv_handle_exit;

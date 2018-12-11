@@ -86,7 +86,7 @@ add_module ()
 }
 
 UKVM_CFLAGS=
-UKVM_LDFLAGS="-T ${UKVM_SRC}/ukvm.lds -z execstack"
+UKVM_LDFLAGS=
 UKVM_LDLIBS=
 UKVM_HEADERS=
 UKVM_OBJS=
@@ -107,7 +107,8 @@ case ${TARGET} in
     x86_64-*linux*)
         #add_obj ukvm_hv_kvm.o ukvm_hv_kvm_x86_64.o ukvm_cpu_x86_64.o
         #add_header ukvm_hv_kvm.h ukvm_cpu_x86_64.h
-        add_obj ukvm_hv_linux.o ukvm_syscall-reporter.o ukvm_cpu_x86_64.o
+        UKVM_LDFLAGS="-T ${UKVM_SRC}/ukvm_x86_64.lds -z execstack"
+        add_obj ukvm_hv_linux.o ukvm_hv_linux_x86_64.o ukvm_syscall-reporter.o ukvm_cpu_x86_64.o
         add_header ukvm_hv_linux.h seccomp-bpf.h
         add_ldlib -lseccomp
         ;;
@@ -116,8 +117,12 @@ case ${TARGET} in
         add_header ukvm_hv_freebsd.h ukvm_cpu_x86_64.h
 	    ;;
     aarch64-*linux*)
-        add_obj ukvm_hv_kvm.o ukvm_hv_kvm_aarch64.o ukvm_cpu_aarch64.o
-        add_header ukvm_hv_kvm.h ukvm_cpu_aarch64.h
+        #add_obj ukvm_hv_kvm.o ukvm_hv_kvm_aarch64.o ukvm_cpu_aarch64.o
+        #add_header ukvm_hv_kvm.h ukvm_cpu_aarch64.h
+        UKVM_LDFLAGS="-T ${UKVM_SRC}/ukvm_aarch64.lds -z execstack"
+        add_obj ukvm_hv_linux.o ukvm_hv_linux_aarch64.o ukvm_syscall-reporter.o ukvm_cpu_aarch64.o
+        add_header ukvm_hv_linux.h seccomp-bpf.h
+        add_ldlib -lseccomp
         ;;
     *)
         die "Unsupported compiler target: ${TARGET}"
